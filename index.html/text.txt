@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PES MOBILE 2D</title>
+  <!-- PeerJS Library -->
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 360px;
+      height: 540px;
+      background: linear-gradient(135deg, #0b1d3a, #1f4068);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      box-sizing: border-box;
+      padding: 20px;
+      border-radius: 15px;
+    }
+    .screen h1 { font-size: 28px; margin-bottom: 5px; color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5); text-align: center; }
+    .screen h2 { color: #00ffcc; margin-bottom: 15px; text-align: center; }
+    .screen p { color: #a0aec0; margin-bottom: 20px; text-align: center; font-size: 14px; }
+    .btn { width: 200px; padding: 12px; margin: 6px 0; border: none; border-radius: 25px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .primary-btn { background: #00ffcc; color: #0b1d3a; }
+    .primary-btn:active { transform: scale(0.95); }
+    .secondary-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+    .secondary-btn:active { background: rgba(255,255,255,0.2); }
+    .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; justify-content: center; align-items: center; margin-bottom: 15px; }
+    .level-btn { width: 50px; height: 50px; background: #1f4068; border: 2px solid #00ffcc; border-radius: 10px; color: white; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+    .level-btn:active { background: #00ffcc; color: #0b1d3a; }
+    #game-hud { position: absolute; top: 10px; width: 340px; display: flex; justify-content: space-between; align-items: center; z-index: 5; font-weight: bold; font-size: 15px; pointer-events: none; }
+    #pause-btn { pointer-events: auto; background: rgba(0,0,0,0.5); border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<!-- Main Menu Screen -->
+<div id="main-menu" class="screen">
+  <h1>PES MOBILE 2D</h1>
+  <p>The Ultimate Touch Football Experience</p>
+  <button class="btn primary-btn" onclick="playSound('click'); showLevelSelect()">Single Player (12 Levels)</button>
+  <button class="btn primary-btn" style="background: #ff007f; color: white;" onclick="playSound('click'); showMultiplayerMenu()">Online Multiplayer</button>
+  <button class="btn secondary-btn" onclick="playSound('click'); showCustomizeMenu()">Customize Player</button>
+</div>
+
+<!-- Customize Player Screen -->
+<div id="customize-menu" class="screen" style="display: none;">
+  <h2>Player Profile</h2>
+  <div style="margin-bottom: 15px; text-align: center;">
+    <label style="font-size: 13px; color: #a0aec0; display: block; margin-bottom: 5px;">Player Name:</label>
+    <input type="text" id="player-name-input" value="Striker" maxlength="10" style="padding: 10px; width: 180px; border-radius: 8px; border: none; text-align: center; font-weight: bold; font-size: 16px;">
+  </div>
+  <div style="margin-bottom: 20px; text-align: center;">
+    <label style="font-size: 13px; color: #a0aec0; display: block; margin-bottom: 8px;">Jersey Color:</label>
+    <div style="display: flex; gap: 10px; justify-content: center;">
+      <div onclick="setPlayerColor('cyan')" style="width: 35px; height: 35px; background: cyan; border-radius: 50%; cursor: pointer; border: 2px solid white;"></div>
+      <div onclick="setPlayerColor('#ff007f')" style="width: 35px; height: 35px; background: #ff007f; border-radius: 50%; cursor: pointer; border: 2px solid white;"></div>
+      <div onclick="setPlayerColor('gold')" style="width: 35px; height: 35px; background: gold; border-radius: 50%; cursor: pointer; border: 2px solid white;"></div>
+      <div onclick="setPlayerColor('lime')" style="width: 35px; height: 35px; background: lime; border-radius: 50%; cursor: pointer; border: 2px solid white;"></div>
+    </div>
+  </div>
+  <button class="btn primary-btn" onclick="playSound('click'); saveProfile()">Save & Back</button>
+</div>
+
+<!-- Level Select Screen -->
+<div id="level-select" class="screen" style="display: none;">
+  <h2>Select Level</h2>
+  <div class="grid-container" id="levelGrid"></div>
+  <button class="btn secondary-btn" onclick="playSound('click'); backToMenu()">Back</button>
+</div>
+
+<!-- Multiplayer Lobby Screen -->
+<div id="multiplayer-menu" class="screen" style="display: none;">
+  <h2>Online Multiplayer</h2>
+  <button class="btn primary-btn" onclick="playSound('click'); hostGame()">Host Match</button>
+  <div style="margin: 15px 0; text-align: center;">
+    <p id="room-code-display" style="margin-bottom: 5px; font-size: 14px; color: #00ffcc;">Your Code: Generating...</p>
+  </div>
+  <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+    <input type="text" id="join-code-input" placeholder="Enter Friend's Code" style="padding: 10px; width: 180px; border-radius: 8px; border: none; text-align: center; margin-bottom: 8px; font-weight: bold;">
+    <button class="btn primary-btn" style="background: #ffcc00; color: #111;" onclick="playSound('click'); joinGame()">Join Match</button>
+  </div>
+  <button class="btn secondary-btn" style="margin-top: 20px;" onclick="playSound('click'); backToMenu()">Back</button>
+</div>
+
+<!-- Game HUD -->
+<div id="game-hud" style="display: none;">
+  <span id="hud-score">Goals: 0</span>
+  <span id="hud-level">Mode: Training</span>
+  <button id="pause-btn" onclick="playSound('click'); backToMenu()">Menu</button>
+</div>
+
+<script>
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playSound(type) {
+    initAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    let now = audioCtx.currentTime;
+
+    if (type === 'click') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+      gainNode.gain.setValueAtTime(0.1, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+      osc.start(now); osc.stop(now + 0.05);
+    } else if (type === 'kick') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+      gainNode.gain.setValueAtTime(0.6, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+      osc.start(now); osc.stop(now + 0.15);
+    } else if (type === 'goal') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.setValueAtTime(450, now + 0.1);
+      osc.frequency.setValueAtTime(600, now + 0.2);
+      gainNode.gain.setValueAtTime(0.3, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+      osc.start(now); osc.stop(now + 0.4);
+    }
+  }
+
+  let playerName = "Striker";
+  let playerColor = "cyan";
+  function setPlayerColor(color) { playerColor = color; player.color = color; playSound('click'); }
+  function saveProfile() {
+    let customName = document.getElementById("player-name-input").value.trim();
+    if (customName) playerName = customName;
+    backToMenu();
+  }
+
+  let peer = null, conn = null, isHost = false, isMultiplayer = false;
+  function initPeer() {
+    if (peer) return;
+    peer = new Peer();
+    peer.on('open', (id) => {
+      document.getElementById("room-code-display").innerText = "Your Room Code: " + id.substr(0, 5);
+      peer.id = id;
+    });
+    peer.on('connection', (connection) => {
+      conn = connection; isHost = true; setupConnectionHandlers();
+      alert("Player connected! Starting match...");
+      startMultiplayerGame();
+    });
+  }
+
+  function hostGame() { initPeer(); alert("Hosting match! Share code with your friend."); }
+  function joinGame() {
+    let friendId = document.getElementById("join-code-input").value.trim();
+    if (!friendId) { alert("Enter code!"); return; }
+    initPeer();
+    conn = peer.connect(friendId);
+    isHost = false; setupConnectionHandlers();
+    conn.on('open', () => {
+      alert("Connected to host!");
+      startMultiplayerGame();
+      conn.send({ type: 'profile', name: playerName, color: playerColor });
+    });
+  }
+
+  function setupConnectionHandlers() {
+    conn.on('data', (data) => {
+      if (data.type === 'profile') {
+        guestPlayer.name = data.name; guestPlayer.color = data.color;
+      } else if (isHost) {
+        guestPlayer.x = data.x; guestPlayer.y = data.y;
+      } else {
+        ball.x = data.ballX; ball.y = data.ballY; keeper.x = data.keeperX; score = data.score;
+        document.getElementById("hud-score").innerText = "Goals: " + score;
+      }
+    });
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 400; canvas.height = 600;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  canvas.style.display = "none";
+
+  let currentLevel = 1, score = 0, goalsNeededToWin = 3, gameRunning = false;
+  let ball = { x: 200, y: 400, radius: 8, speedX: 0, speedY: 0 };
+  let player = { x: 200, y: 500, radius: 14, color: "cyan" };
+  let guestPlayer = { x: 200, y: 100, radius: 14, color: "magenta", name: "Guest" };
+  let keeper = { x: 200, y: 80, width: 60, height: 12, speed: 2, direction: 1 };
+
+  window.showLevelSelect = () => { isMultiplayer = false; document.getElementById("main-menu").style.display = "none"; document.getElementById("level-select").style.display = "flex"; };
+  window.showMultiplayerMenu = () => { document.getElementById("main-menu").style.display = "none"; document.getElementById("multiplayer-menu").style.display = "flex"; initPeer(); };
+  window.showCustomizeMenu = () => { document.getElementById("main-menu").style.display = "none"; document.getElementById("customize-menu").style.display = "flex"; };
+  window.backToMenu = () => {
+    gameRunning = false; isMultiplayer = false; if (conn) conn.close();
+    canvas.style.display = "none";
+    ["game-hud", "level-select", "multiplayer-menu", "customize-menu"].forEach(id => document.getElementById(id).style.display = "none");
+    document.getElementById("main-menu").style.display = "flex";
+  };
+  window.startLevel = (levelNum) => {
+    isMultiplayer = false; currentLevel = levelNum; score = 0; playSound('click');
+    keeper.speed = 1.5 + (levelNum * 0.4); keeper.width = Math.max(35, 65 - (levelNum * 2));
+    document.getElementById("level-select").style.display = "none";
+    document.getElementById("main-menu").style.display = "none";
+    canvas.style.display = "block";
+    document.getElementById("game-hud").style.display = "flex";
+    document.getElementById("hud-level").innerText = "Level: " + currentLevel;
+    document.getElementById("hud-score").innerText = "Goals: 0 / " + goalsNeededToWin;
+    resetBall(); gameRunning = true;
+  };
+
+  function startMultiplayerGame() {
+    isMultiplayer = true; score = 0; playSound('click');
+    document.getElementById("multiplayer-menu").style.display = "none";
+    document.getElementById("main-menu").style.display = "none";
+    canvas.style.display = "block";
+    document.getElementById("game-hud").style.display = "flex";
+    document.getElementById("hud-level").innerText = "Online Match";
+    document.getElementById("hud-score").innerText = "Goals: 0";
+    if (isHost && conn && conn.open) conn.send({ type: 'profile', name: playerName, color: playerColor });
+    resetBall(); gameRunning = true;
+  }
+
+  const gridContainer = document.getElementById("levelGrid");
+  for (let i = 1; i <= 12; i++) {
+    let btn = document.createElement("button");
+    btn.className = "level-btn"; btn.innerText = i;
+    btn.onclick = () => window.startLevel(i);
+    gridContainer.appendChild(btn);
+  }
+
+  canvas.addEventListener("touchmove", (e) => {
+    let rect = canvas.getBoundingClientRect(), touch = e.touches[0];
+    player.x = touch.clientX - rect.left; player.y = touch.clientY - rect.top;
+    if (isMultiplayer && conn && conn.open) conn.send({ x: player.x, y: player.y });
+    e.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener("mousemove", (e) => {
+    let rect = canvas.getBoundingClientRect();
+    player.x = e.clientX - rect.left; player.y = e.clientY - rect.top;
+    if (isMultiplayer && conn && conn.open) conn.send({ x: player.x, y: player.y });
+  });
+
+  canvas.addEventListener("click", () => {
+    if (!gameRunning) return;
+    let distX = ball.x - player.x, distY = ball.y - player.y;
+    let distance = Math.sqrt(distX * distX + distY * distY);
+    if (distance < 40) { ball.speedX = (distX / distance) * 4; ball.speedY = -11; playSound('kick'); }
+  });
+
+  function resetBall() { ball.x = 200; ball.y = 400; ball.speedX = 0; ball.speedY = 0; }
+
+  function updateGame() {
+    if (gameRunning) {
+      ctx.fillStyle = "forestgreen";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "white"; ctx.lineWidth = 4;
+      ctx.strokeRect(140, 60, 120, 20);
+
+      ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
+
+      if (!isMultiplayer || isHost) {
+        keeper.x += keeper.speed * keeper.direction;
+        if (keeper.x < 150 || keeper.x > 250) keeper.direction *= -1;
+
+        ball.x += ball.speedX; ball.y += ball.speedY;
+        ball.speedX *= 0.98; ball.speedY *= 0.98;
+
+        if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.speedX *= -1;
+        if (ball.y + ball.radius > canvas.height) ball.speedY *= -1;
+
+        let pDist = Math.sqrt((ball.x - player.x)**2 + (ball.y - player.y)**2);
+        if (pDist < player.radius + ball.radius) {
+          ball.speedX = (ball.x - player.x) * 0.15;
+          ball.speedY = (ball.y - player.y) * 0.15;
+        }
+
+        if (isMultiplayer) {
+          let gpDist = Math.sqrt((ball.x - guestPlayer.x)**2 + (ball.y - guestPlayer.y)**2);
+          if (gpDist < guestPlayer.radius + ball.radius) {
+            ball.speedX = (ball.x - guestPlayer.x) * 0.15;
+            ball.speedY = (ball.y - guestPlayer.y) * 0.15;
+          }
+        }
+
+        if (ball.x > keeper.x - keeper.width / 2 && ball.x < keeper.x + keeper.width / 2 &&
+            ball.y - ball.radius <= keeper.y + keeper.height && ball.y + ball.radius >= keeper.y) {
+          ball.speedY *= -1; ball.speedY += 2;
+        }
+
+        if (ball.y <= 75 && ball.x > 145 && ball.x < 255) {
+          score++; playSound('goal');
+          document.getElementById("hud-score").innerText = "Goals: " + score;
+          resetBall();
+          if (!isMultiplayer && score >= goalsNeededToWin) {
+            alert("Level " + currentLevel + " Cleared!");
+            if (currentLevel < 12) window.startLevel(currentLevel + 1);
+            else { alert("You beat all 12 levels!"); window.backToMenu(); }
+          }
+        }
+
+        if (ball.y < 0 || ball.y > canvas.height) resetBall();
+
+        if (isMultiplayer && conn && conn.open) {
+          conn.send({ ballX: ball.x, ballY: ball.y, keeperX: keeper.x, score: score });
+        }
+      }
+
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fillStyle = "white"; ctx.fill(); ctx.closePath();
+
+      ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fillStyle = player.color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "navy"; ctx.stroke(); ctx.closePath();
+
+      ctx.fillStyle = "white"; ctx.font = "11px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(playerName, player.x, player.y + 25);
+
+      if (isMultiplayer) {
+        ctx.beginPath(); ctx.arc(guestPlayer.x, guestPlayer.y, guestPlayer.radius, 0, Math.PI * 2);
+        ctx.fillStyle = guestPlayer.color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "black"; ctx.stroke(); ctx.closePath();
+        ctx.fillText(guestPlayer.name, guestPlayer.x, guestPlayer.y - 18);
+      }
+
+      ctx.fillStyle = "orange";
+      ctx.fillRect(keeper.x - keeper.width / 2, keeper.y, keeper.width, keeper.height);
+    }
+    requestAnimationFrame(updateGame);
+  }
+
+  updateGame();
+</script>
+</body>
+</html>
